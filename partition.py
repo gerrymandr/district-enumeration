@@ -7,7 +7,7 @@ Enumerate all possible partitions of a small map into districts,
 to compare results with randomized district sampling algorithms.
 """
 
-from __future__ import __division__     # for Python 2.7
+from __future__ import division     # for Python 2.7
 
 
 import networkx as nx
@@ -46,14 +46,14 @@ def all_partitions(graph, limits):
             each subgraph a list of node
     """
     partitions = []
-        
+    
     # Find node with highest weight
-    nodes = graph.nodes(data='weight')      # sequence of (id, weight)
+    nodes = graph.nodes(data='weight')      # iterator of (id, weight)
     weights = [weight for id, weight in nodes]
     highest_weight = max(weights)
     node_index = weights.index(highest_weight)
-    heaviest = nodes[node_index][0]    # id of first node with highest weight
-        
+    heaviest = list(nodes)[node_index][0]    # id of node with highest weight
+    
     # Find all subgraphs containing heaviest node, within weight limits
     subgraphs = accrete(graph,
                         subgraph={heaviest},
@@ -67,9 +67,9 @@ def all_partitions(graph, limits):
         ###         discard subgraph if any are underweight.
         
         remainder = graph.copy()
-        remainder.remove_nodes_from(subgraph.nodes)
-        if len(remainder) == 0:         # empty
-            partitions += [subgraph]    # subgraph is a partition of size one
+        remainder.remove_nodes_from(subgraph)
+        if len(remainder) == 0:             # empty
+            partitions.append([subgraph])   # add a 1-part partition
         else:
             subpartitions = all_partitions(remainder, limits)
             # add subgraph to each subpartition
@@ -99,20 +99,22 @@ def accrete(graph, subgraph, subgraph_weight, ignore, limits):
     ### reuse this?
     nbrs = set()
     for node_id in subgraph:
-        nbrs += set(graph[node_id]) - ignore
+        nbrs |= set(graph[node_id]) - ignore
     
     ### use neighbors of forward node only?
     # Try adding each neighbor to subgraph
     for nbr in nbrs:
-        if subgraph_weight + nbr['weight'] > max_weight:
+        subgraph_weight += graph.nodes[nbr]['weight']
+        if subgraph_weight > max_weight:
             ignore.add(nbr)  # nbr too heavy to add to subgraph, skip it later
         else:
-            if subgraph_weight + nbr['weight'] >= min_weight:
-                subgraphs.append(subgraph + {nbr})
+            new_subgraph = subgraph | {nbr}
+            if subgraph_weight >= min_weight:
+                subgraphs.append(new_subgraph)
             subgraphs += accrete(graph, 
-                                 subgraph + {nbr},
-                                 subgraph_weight + nbr['weight'],
-                                 ignore + {nbr}, 
+                                 new_subgraph,
+                                 subgraph_weight,
+                                 ignore | {nbr},
                                  limits)
     return subgraphs
 
@@ -130,3 +132,16 @@ if __name__ == "__main__":
     partitions = all_partitions(graph, limits)
     # display partitions or write to file
 
+
+# test data
+d = {0: {'weight': 8.0}, 1: {'weight': 15.0}, 2: {'weight': 0.2}, 
+     3: {'weight': 6.2}, 4: {'weight': 4.4}, 5: {'weight': 0}}
+dt = [(0, {'weight': 8.0}), (1, {'weight': 15.0}), (2, {'weight': 0.2}),
+      (3, {'weight': 6.2}), (4, {'weight': 4.4}), (5, {'weight': 0})]
+g = nx.Graph()
+g.add_nodes_from(dt)
+e = [(0, 1), (0, 4), (1, 2), (2, 3), (3, 4), (3, 5), (4, 5)]
+g.add_edges_from(e)
+    
+    
+    
